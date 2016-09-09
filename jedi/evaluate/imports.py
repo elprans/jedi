@@ -332,18 +332,29 @@ class Importer(object):
                 return set()
 
         source = None
-        if is_pkg:
+        if is_pkg and not isinstance(module_path, tuple):
             # In this case, we don't have a file yet. Search for the
             # __init__ file.
             if module_path.endswith(('.zip', '.egg')):
                 source = module_file.loader.get_source(module_name)
             else:
                 module_path = get_init_path(module_path)
+
         elif module_file:
             source = module_file.read()
             module_file.close()
 
-        if module_file is None and not module_path.endswith(('.py', '.zip', '.egg')):
+        if module_file is None and isinstance(module_path, tuple):
+            # namespace package
+            from jedi.parser.tree import NamespacePackage
+            from jedi.evaluate.representation import NamespacePackageContext
+
+            tree_node = NamespacePackage([])
+            tree_node.name = module_name
+            tree_node.path = module_path
+
+            module = NamespacePackageContext(self._evaluator, tree_node)
+        elif module_file is None and not module_path.endswith(('.py', '.zip', '.egg')):
             module = compiled.load_module(self._evaluator, module_path)
         else:
             module = _load_module(self._evaluator, module_path, source, sys_path, parent_module)

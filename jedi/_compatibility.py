@@ -33,15 +33,24 @@ class DummyFile(object):
 
 
 def find_module_py33(string, path=None):
-    loader = importlib.machinery.PathFinder.find_module(string, path)
+    spec = importlib.machinery.PathFinder.find_spec(string, path)
 
-    if loader is None and path is None:  # Fallback to find builtins
+    if spec is None:  # Fallback to find builtins
         try:
             loader = importlib.find_loader(string)
         except ValueError as e:
             # See #491. Importlib might raise a ValueError, to avoid this, we
             # just raise an ImportError to fix the issue.
             raise ImportError("Originally  " + repr(e))
+
+    if spec is not None and spec.loader is None:
+        # Pure namespace package
+        return None, tuple(spec.submodule_search_locations), True
+
+    if spec is not None:
+        loader = spec.loader
+    else:
+        loader = None
 
     if loader is None:
         raise ImportError("Couldn't find a loader for {0}".format(string))

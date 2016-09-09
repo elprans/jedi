@@ -863,6 +863,27 @@ class Module(Scope):
         return result
 
 
+class NamespacePackage(Scope):
+    __slots__ = ('path', 'used_names', 'name')
+
+    def __init__(self, children):
+        super(NamespacePackage, self).__init__(children)
+        self.path = None
+        self.name = None
+        self.used_names = {}
+
+    def __repr__(self):
+        try:
+            name = self.path
+        except AttributeError:
+            try:
+                name = self.name
+            except AttributeError:
+                name = self.command
+
+        return "<%s: %s>" % (type(self).__name__, name)
+
+
 class Decorator(BaseNode):
     type = 'decorator'
     __slots__ = ()

@@ -570,3 +570,68 @@ class ModuleContext(use_metaclass(CachedMetaClass, context.TreeContext)):
 
     def py__class__(self):
         return compiled.get_special_object(self.evaluator, 'MODULE_CLASS')
+
+
+class NamespacePackageContext(
+        use_metaclass(CachedMetaClass, context.TreeContext)):
+    api_type = 'module'
+    parent_context = None
+
+    def __init__(self, evaluator, tree_node):
+        super(NamespacePackageContext, self).__init__(
+            evaluator, parent_context=None)
+        self.tree_node = tree_node
+
+    def get_filters(self, search_global, until_position=None, origin_scope=None):
+        yield ParserTreeFilter(
+            self.evaluator,
+            context=self,
+            until_position=until_position,
+            origin_scope=origin_scope
+        )
+        yield DictFilter(self._sub_modules_dict())
+        yield DictFilter(self._module_attributes_dict())
+
+    @memoize_default()
+    def _module_attributes_dict(self):
+        names = ['__file__', '__package__', '__doc__', '__name__']
+        # All the additional module attributes are strings.
+        return dict((n, ModuleAttributeName(self, n)) for n in names)
+
+    @property
+    def name(self):
+        return ContextName(self, self.tree_node.name)
+
+    def py__name__(self):
+        for name, module in self.evaluator.modules.items():
+            if module == self and name != '':
+                return name
+
+        return '__main__'
+
+    def py__file__(self):
+        return None
+
+    def py__package__(self):
+        return self.py__name__()
+
+    def py__path__(self):
+        return self.tree_node.path
+
+    @memoize_default()
+    def _sub_modules_dict(self):
+        """
+        Lists modules in the directory of this module (if this module is a
+        package).
+        """
+        names = {}
+        for path in self.tree_node.path:
+            mods = pkgutil.iter_modules([os.path.dirname(path)])
+            for module_loader, name, is_pkg in mods:
+                # It's obviously a relative import to the current module.
+                names[name] = imports.SubModuleName(self, name)
+
+        return names
+
+    def py__class__(self):
+        return compiled.get_special_object(self.evaluator, 'MODULE_CLASS')
